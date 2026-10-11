@@ -1,0 +1,30 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Live Location Share</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main>
+    <h1>Live Location Share — demo</h1>
+    <p>Create a short link that someone can open to send their live location, and share the viewer link with others to watch.</p>
+    <button id="createBtn">Create share link</button>
+    <div id="links"></div>
+  </main>
+
+  <script>
+    document.getElementById('createBtn').onclick = async () => {
+      const r = await fetch('/create', { method: 'POST' });
+      const j = await r.json();
+      const host = location.origin;
+      const send = host + j.sendUrl;
+      const view = host + j.trackUrl;
+      document.getElementById('links').innerHTML =
+        `<p>Sender (share this link from the device sending location): <a href="${send}" target="_blank">${send}</a></p>
+         <p>Viewer (open to watch live): <a href="${view}" target="_blank">${view}</a></p>`;
+    };
+  </script>
+</body>
+</html>

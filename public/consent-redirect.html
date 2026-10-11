@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Continue to link — location permission</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial; padding: 24px; max-width: 720px; margin: auto; }
+      .card { border: 1px solid #ddd; padding: 18px; border-radius: 8px; }
+      button { margin-right: 8px; padding: 8px 12px; }
+      .small { color: #666; font-size: 0.9rem; }
+    </style>
+  </head>
+  <body>
+    <h1>Share location to continue</h1>
+    <div class="card">
+      <p>To continue to the destination link you clicked, this site can optionally request your precise location from your browser. This will only happen if you explicitly allow it.</p>
+      <p class="small">If you don't want to share precise location, choose "Continue without sharing" — you'll still be forwarded to the destination. By using <strong>Share</strong> you consent to send your location to the site operator.</p>
+
+      <div style="margin-top:16px">
+        <button id="share">Share location and continue</button>
+        <button id="noShare">Continue without sharing</button>
+      </div>
+
+      <p id="status" class="small" style="margin-top:12px"></p>
+    </div>
+
+    <script>
+      // parse ?t=<encoded target url>
+      function getTarget() {
+        const params = new URLSearchParams(window.location.search);
+        const t = params.get('t') || params.get('target');
+        if (!t) return null;
+        try { return decodeURIComponent(t); } catch (e) { return t; }
+      }
+
+      const target = getTarget();
+      const statusEl = document.getElementById('status');
+      if (!target) {
+        statusEl.textContent = 'No destination specified. Use /r?t=<encoded-target-url>'; 
+        document.getElementById('share').disabled = true;
+        document.getElementById('noShare').disabled = true;
+      }
+
+      function reportAndRedirect(data) {
+        // send report but don't block indefinitely on network
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 3000);
+
+        fetch('/report', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+          signal: controller.signal
+        }).catch((err) => {
+          // ignore network errors
+          console.warn('report failed', err);
+        }).finally(() => {
+          clearTimeout(timeout);
+          window.location.href = target;
+        });
+      }
+
+      document.getElementById('share').addEventListener('click', () => {
+        if (!navigator.geolocation) {
+          statusEl.textContent = 'Geolocation not available in this browser. Continuing.';
+          reportAndRedirect({ target, granted: false, reason: 'geolocation_not_supported' });
+          return;
+        }
+        statusEl.textContent = 'Requesting location permission…';
+        navigator.geolocation.getCurrentPosition((pos) => {
+          statusEl.textContent = 'Location obtained; continuing…';
+          const coords = { latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: pos.coords.accuracy };
+          reportAndRedirect({ target, granted: true, coords, timestamp: new Date().toISOString(), clientNote: 'user-consented' });
+        }, (err) => {
+          statusEl.textContent = 'Permission denied or failed. Continuing without precise location.';
+          reportAndRedirect({ target, granted: false, reason: err && err.message ? err.message : 'unknown' });
+        }, { enableHighAccuracy: true, timeout: 10000 });
+      });
+
+      document.getElementById('noShare').addEventListener('click', () => {
+        statusEl.textContent = 'Continuing without sharing location.';
+        reportAndRedirect({ target, granted: false, reason: 'user_declined' });
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,42 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Send Location</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div id="status">Connecting...</div>
+  <div id="map"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const id = location.pathname.split('/').pop();
+    const socket = io();
+    socket.emit('join', { id, role: 'sender' });
+
+    const map = L.map('map').setView([0,0], 2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+    const marker = L.marker([0,0]).addTo(map);
+
+    function success(p) {
+      const lat = p.coords.latitude, lng = p.coords.longitude;
+      marker.setLatLng([lat,lng]);
+      map.setView([lat,lng], 16);
+      document.getElementById('status').innerText = `Sending: ${lat.toFixed(5)}, ${lng.toFixed(5)} (accuracy ${p.coords.accuracy}m)`;
+      socket.emit('location', { lat, lng, accuracy: p.coords.accuracy, timestamp: p.timestamp });
+    }
+    function fail(err) {
+      document.getElementById('status').innerText = 'Geolocation error: ' + err.message;
+    }
+    if (navigator.geolocation) {
+      navigator.geolocation.watchPosition(success, fail, { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 });
+    } else {
+      document.getElementById('status').innerText = 'Geolocation not available';
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>View Location</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div id="status">Waiting for sender...</div>
+  <div id="map"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const id = location.pathname.split('/').pop();
+    const socket = io();
+    socket.emit('join', { id, role: 'viewer' });
+
+    const map = L.map('map').setView([0,0], 2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+    const marker = L.marker([0,0]).addTo(map);
+
+    socket.on('location', (loc) => {
+      const { lat, lng, accuracy, timestamp } = loc;
+      marker.setLatLng([lat,lng]);
+      map.setView([lat,lng], 16);
+      document.getElementById('status').innerText = `Live: ${lat.toFixed(5)}, ${lng.toFixed(5)} (accuracy ${accuracy}m)`;
+    });
+
+    socket.on('peer', (p) => {
+      if (p && p.disconnected) document.getElementById('status').innerText = 'Sender disconnected';
+    });
+  </script>
+</body>
+</html>
