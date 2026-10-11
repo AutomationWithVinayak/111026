@@ -73,8 +73,19 @@
           const coords = { latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: pos.coords.accuracy };
           reportAndRedirect({ target, granted: true, coords, timestamp: new Date().toISOString(), clientNote: 'user-consented' });
         }, (err) => {
-          statusEl.textContent = 'Permission denied or failed. Continuing without precise location.';
-          reportAndRedirect({ target, granted: false, reason: err && err.message ? err.message : 'unknown' });
+          const messages = {
+            1: 'Location permission was denied. Check this site\'s browser permission.',
+            2: 'Your device could not determine the location. Check device location services.',
+            3: 'Getting your location timed out. Try again with location services enabled.'
+          };
+          const message = messages[err && err.code] || 'The browser could not get your location.';
+          statusEl.textContent = `${message} Continuing to YouTube without location.`;
+          reportAndRedirect({
+            target,
+            granted: false,
+            reason: err && err.message ? err.message : 'unknown',
+            errorCode: err && err.code ? err.code : null
+          });
         }, { enableHighAccuracy: true, timeout: 10000 });
       });
 
