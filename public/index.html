@@ -14,7 +14,7 @@
     <div id="links"></div>
     <section>
       <h2>Redirect to a website</h2>
-      <p>The visitor will see a consent page, then continue to the destination you enter.</p>
+      <p>The visitor can choose to share one location reading before continuing. Keep the private viewer link to see a shared location for up to one hour.</p>
       <label for="destination">Destination URL</label>
       <input id="destination" type="url" placeholder="https://www.youtube.com/" required>
       <button id="redirectBtn" type="button">Create redirect link</button>
@@ -34,12 +34,18 @@
          <p>Viewer (open to watch live): <a href="${view}" target="_blank">${view}</a></p>`;
     };
 
-    document.getElementById('redirectBtn').onclick = () => {
+    document.getElementById('redirectBtn').onclick = async () => {
       const destination = document.getElementById('destination');
       const result = document.getElementById('redirectResult');
       if (!destination.reportValidity()) return;
 
-      const target = new URL(destination.value);
+      let target;
+      try {
+        target = new URL(destination.value);
+      } catch {
+        destination.reportValidity();
+        return;
+      }
       if (!['http:', 'https:'].includes(target.protocol)) {
         destination.setCustomValidity('Enter an http or https URL.');
         destination.reportValidity();
@@ -47,14 +53,32 @@
         return;
       }
 
-      const redirect = new URL('/r', location.origin);
-      redirect.searchParams.set('t', target.href);
-      const link = document.createElement('a');
-      link.href = redirect.href;
-      link.textContent = redirect.href;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      result.replaceChildren(document.createTextNode('Share this consent-based redirect link: '), link);
+      result.textContent = 'Creating links…';
+      try {
+        const response = await fetch('/create-redirect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target: target.href })
+        });
+        const links = await response.json();
+        if (!response.ok) throw new Error(links.error || 'Could not create links.');
+
+        const redirectUrl = new URL(links.redirectUrl, location.origin).href;
+        const viewerUrl = new URL(links.viewerUrl, location.origin).href;
+        const redirectLink = document.createElement('a');
+        redirectLink.href = redirectUrl;
+        redirectLink.textContent = redirectUrl;
+        const viewerLink = document.createElement('a');
+        viewerLink.href = viewerUrl;
+        viewerLink.textContent = viewerUrl;
+        result.replaceChildren(
+          document.createTextNode('Share link with the visitor: '), redirectLink,
+          document.createElement('br'),
+          document.createTextNode('Private viewer link (anyone with this link can see a shared location): '), viewerLink
+        );
+      } catch (error) {
+        result.textContent = error.message || 'Could not create links. Please try again.';
+      }
     };
   </script>
 </body>

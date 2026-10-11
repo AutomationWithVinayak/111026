@@ -14,8 +14,8 @@
   <body>
     <h1>Share location to continue</h1>
     <div class="card">
-      <p>To continue to the destination link you clicked, this site can optionally request your precise location from your browser. This will only happen if you explicitly allow it.</p>
-      <p class="small">If you don't want to share precise location, choose "Continue without sharing" — you'll still be forwarded to the destination. By using <strong>Share</strong> you consent to send your location to the site operator.</p>
+      <p>To continue to the destination link you clicked, this page can optionally request one precise location reading from your browser. This only happens if you explicitly allow it.</p>
+      <p class="small">If you choose <strong>Share location and continue</strong> and your browser gets a location, one precise reading is sent to this site's server. The person who sent you this link can view it using their private link for up to one hour. This site also records your IP address and browser details with your response. Anyone with the private viewer link can see the shared location. You can choose "Continue without sharing" and still go to the destination.</p>
 
       <div style="margin-top:16px">
         <button id="share">Share location and continue</button>
@@ -35,6 +35,7 @@
       }
 
       const target = getTarget();
+      const shareId = new URLSearchParams(window.location.search).get('share');
       const statusEl = document.getElementById('status');
       if (!target) {
         statusEl.textContent = 'No destination specified. Use /r?t=<encoded-target-url>'; 
@@ -46,6 +47,7 @@
         // send report but don't block indefinitely on network
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 3000);
+        if (shareId) data.shareId = shareId;
 
         fetch('/report', {
           method: 'POST',
@@ -79,7 +81,7 @@
             3: 'Getting your location timed out. Try again with location services enabled.'
           };
           const message = messages[err && err.code] || 'The browser could not get your location.';
-          statusEl.textContent = `${message} Continuing to YouTube without location.`;
+          statusEl.textContent = `${message} Continuing without location.`;
           reportAndRedirect({
             target,
             granted: false,

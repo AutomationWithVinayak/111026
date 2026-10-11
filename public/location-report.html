@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Shared location</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    #map { height: min(65vh, 560px); min-height: 320px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Shared location</h1>
+    <p id="status" role="status" aria-live="polite">Waiting for the visitor to respond…</p>
+    <div id="map" aria-label="Map showing the shared location"></div>
+  </main>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const viewerId = location.pathname.split('/').pop();
+    const status = document.getElementById('status');
+    const map = L.map('map').setView([20, 0], 2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    let marker;
+    let polling = false;
+    async function checkLocation() {
+      if (polling) return;
+      polling = true;
+      try {
+        const response = await fetch(`/api/location-report/${encodeURIComponent(viewerId)}`, { cache: 'no-store' });
+        const result = await response.json();
+        if (result.status === 'waiting') {
+          status.textContent = 'Waiting for the visitor to respond. This link expires after one hour.';
+        } else if (result.status === 'not_shared') {
+          status.textContent = 'No location was shared. The visitor declined or their device could not provide one.';
+          clearInterval(pollTimer);
+        } else if (result.status === 'expired') {
+          status.textContent = 'This private location link has expired.';
+          clearInterval(pollTimer);
+        } else if (result.status === 'received') {
+          const { latitude, longitude, accuracy } = result.location;
+          status.textContent = `Location shared once. Coordinates: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}${accuracy ? ` (accuracy about ${Math.round(accuracy)} m)` : ''}.`;
+          if (!marker) marker = L.marker([latitude, longitude]).addTo(map);
+          marker.setLatLng([latitude, longitude]);
+          map.setView([latitude, longitude], 16);
+          clearInterval(pollTimer);
+        }
+      } catch {
+        status.textContent = 'Could not check for a location. Check your connection and reload this page.';
+      } finally {
+        polling = false;
+      }
+    }
+
+    const pollTimer = setInterval(checkLocation, 2000);
+    checkLocation();
+  </script>
+</body>
+</html>
