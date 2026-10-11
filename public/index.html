@@ -12,6 +12,14 @@
     <p>Create a short link that someone can open to send their live location, and share the viewer link with others to watch.</p>
     <button id="createBtn">Create share link</button>
     <div id="links"></div>
+    <section>
+      <h2>Redirect to a website</h2>
+      <p>The visitor will see a consent page, then continue to the destination you enter.</p>
+      <label for="destination">Destination URL</label>
+      <input id="destination" type="url" placeholder="https://www.youtube.com/" required>
+      <button id="redirectBtn" type="button">Create redirect link</button>
+      <p id="redirectResult" aria-live="polite"></p>
+    </section>
   </main>
 
   <script>
@@ -24,6 +32,29 @@
       document.getElementById('links').innerHTML =
         `<p>Sender (share this link from the device sending location): <a href="${send}" target="_blank">${send}</a></p>
          <p>Viewer (open to watch live): <a href="${view}" target="_blank">${view}</a></p>`;
+    };
+
+    document.getElementById('redirectBtn').onclick = () => {
+      const destination = document.getElementById('destination');
+      const result = document.getElementById('redirectResult');
+      if (!destination.reportValidity()) return;
+
+      const target = new URL(destination.value);
+      if (!['http:', 'https:'].includes(target.protocol)) {
+        destination.setCustomValidity('Enter an http or https URL.');
+        destination.reportValidity();
+        destination.setCustomValidity('');
+        return;
+      }
+
+      const redirect = new URL('/r', location.origin);
+      redirect.searchParams.set('t', target.href);
+      const link = document.createElement('a');
+      link.href = redirect.href;
+      link.textContent = redirect.href;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      result.replaceChildren(document.createTextNode('Share this consent-based redirect link: '), link);
     };
   </script>
 </body>
